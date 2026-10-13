@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- CheckInActivity: shown full-screen when a check-in timer expires.
+     Loud buzz, one big I'M FINE button. Ignore it for 10 minutes and
+     the full SOS fires on its own. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/paper"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:padding="32dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="CHECK-IN TIME"
+        android:textColor="@color/sos_red"
+        android:textSize="32sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:text="Are you okay? Tap I'M FINE\nor the SOS fires automatically."
+        android:textColor="@color/ink"
+        android:textSize="18sp" />
+
+    <TextView
+        android:id="@+id/escalateCountdownText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text=""
+        android:textColor="#666666"
+        android:textSize="16sp" />
+
+    <Button
+        android:id="@+id/imFineButton"
+        android:layout_width="match_parent"
+        android:layout_height="96dp"
+        android:layout_marginTop="48dp"
+        android:backgroundTint="@color/checkin_green"
+        android:text="I'M FINE"
+        android:textSize="28sp"
+        android:textStyle="bold" />
+</LinearLayout>

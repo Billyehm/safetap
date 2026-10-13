@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Green circle for the check-in widget button -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <solid android:color="@color/checkin_green" />
+    <stroke
+        android:width="4dp"
+        android:color="#1B5E20" />
+</shape>

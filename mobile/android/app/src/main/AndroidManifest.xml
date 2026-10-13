@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Network: talk to the FastAPI backend -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Location: one fix at trigger time, then a 15-second stream during the alert only -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
+    <!-- Offline fallback: send the SOS straight to contacts as plain SMS -->
+    <uses-permission android:name="android.permission.SEND_SMS" />
+
+    <!-- Loud buzz when a check-in timer expires -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+
+    <!-- Exact alarm so the check-in expiry buzzes on time, even in Doze -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.SafeTap">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Full-screen SOS confirmation. Shows over the lock screen so a
+             panicking user never has to unlock first. -->
+        <activity
+            android:name=".SosActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:launchMode="singleTask" />
+
+        <!-- Full-screen check-in expiry: loud buzz, big I'M FINE button -->
+        <activity
+            android:name=".CheckInActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:launchMode="singleTask" />
+
+        <!-- Streams GPS to the backend every 15 seconds while an alert is live -->
+        <service
+            android:name=".SosForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <!-- 1x1 SOS widget (resizable to 2x1). Tap opens the hold-to-arm screen. -->
+        <receiver
+            android:name=".SosWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_sos_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sos_widget_info" />
+        </receiver>
+
+        <!-- 1x1 check-in widget. One tap starts the check-in timer. -->
+        <receiver
+            android:name=".CheckInWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_checkin_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/checkin_widget_info" />
+        </receiver>
+
+        <!-- Handles widget taps and the check-in alarm broadcasts -->
+        <receiver
+            android:name=".CheckInReceiver"
+            android:exported="false" />
+
+    </application>
+</manifest>

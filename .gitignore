@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.*
+*.egg-info/
+dist/
+build/
+
+# Runtime data (local test state, not source)
+backend/data/
+*.db
+*.sqlite3
+*.pkl
+
+# Uploads / generated files
+uploads/
+backend/uploads/
+
+# Mobile build artifacts
+mobile/android/.gradle/
+mobile/android/app/build/
+mobile/ios/build/
+mobile/ios/DerivedData/
+*.xcuserdata
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+Thumbs.db

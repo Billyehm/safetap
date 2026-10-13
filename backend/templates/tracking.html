@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Emergency alert: {{ person_name }} needs help</title>
+<style>
+  :root{
+    --calm:#0e6b4a;
+    --calm-bg:#eef8f1;
+    --alert:#c0392b;
+    --alert-bg:#fdf0ee;
+    --ink:#1f2937;
+    --muted:#6b7280;
+    --card:#ffffff;
+    --line:#e5e7eb;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    background:#f7f7f7;color:var(--ink);line-height:1.45;
+    -webkit-text-size-adjust:100%;
+  }
+  .wrap{max-width:560px;margin:0 auto;padding:16px 14px 40px}
+  .banner{
+    border-radius:14px;padding:16px;margin-bottom:12px;
+    background:var(--alert-bg);border:2px solid var(--alert);
+    text-align:center;
+  }
+  .banner h1{font-size:1.35rem;color:var(--alert);margin-bottom:4px}
+  .banner p{font-size:1rem;color:var(--ink)}
+  .banner .since{color:var(--muted);font-size:.85rem;margin-top:6px}
+  .card{
+    background:var(--card);border:1px solid var(--line);
+    border-radius:14px;padding:16px;margin-bottom:12px;
+  }
+  .person{display:flex;gap:14px;align-items:center}
+  .photo{
+    width:76px;height:76px;border-radius:50%;object-fit:cover;flex:none;
+    border:3px solid var(--alert);background:#eee;
+  }
+  .person h2{font-size:1.25rem}
+  .person .phone{color:var(--muted);font-size:.95rem}
+  .loc-big{font-size:1.15rem;font-weight:600;margin-bottom:6px}
+  .loc-sub{color:var(--muted);font-size:.92rem;margin-bottom:10px}
+  .meta-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .meta-chip{
+    background:#f3f4f6;border:1px solid var(--line);border-radius:999px;
+    padding:6px 12px;font-size:.9rem;
+  }
+  .btn{
+    display:block;width:100%;border:none;border-radius:14px;
+    padding:18px;font-size:1.15rem;font-weight:700;cursor:pointer;
+    text-decoration:none;text-align:center;margin-top:10px;
+  }
+  .btn-ack{background:var(--calm);color:#fff}
+  .btn-call{background:#111827;color:#fff}
+  .btn:active{transform:scale(.98)}
+  .btn-map{
+    background:#fff;color:var(--calm);border:2px solid var(--calm);
+    padding:12px;font-size:1rem;
+  }
+  .map-frame{width:100%;height:300px;border:0;border-radius:10px;margin-top:10px;display:none}
+  .med h3,.sec-title{font-size:1.05rem;margin-bottom:8px}
+  .med dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.95rem}
+  .med dt{color:var(--muted)}
+  .med dd{font-weight:600}
+  .expiry{color:var(--muted);font-size:.85rem;text-align:center;margin-top:14px}
+  .coming{
+    background:var(--calm-bg);border:2px solid var(--calm);
+    border-radius:14px;padding:14px;margin-bottom:12px;text-align:center;
+    display:none;
+  }
+  .coming strong{color:var(--calm);font-size:1.1rem}
+  /* calm states */
+  .calm{background:var(--calm-bg);border-color:var(--calm)}
+  .calm h1{color:var(--calm)}
+  .ok-box{
+    background:var(--calm-bg);border:2px solid var(--calm);
+    border-radius:14px;padding:28px 16px;text-align:center;margin-bottom:12px;
+  }
+  .ok-box h1{color:var(--calm);font-size:1.5rem;margin-bottom:8px}
+  .ok-box p{font-size:1.05rem}
+  .hidden{display:none!important}
+  .live-dot{
+    display:inline-block;width:10px;height:10px;border-radius:50%;
+    background:#22c55e;margin-right:6px;vertical-align:baseline;
+  }
+  .live-label{font-size:.85rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ACTIVE ALERT VIEW -->
+  <div id="alert-view">
+    <div class="banner" id="banner">
+      <h1>Emergency alert</h1>
+      <p><strong>{{ person_name }}</strong> needs help right now.</p>
+      <p class="since">Alert started {{ alert_started }}</p>
+    </div>
+
+    <div class="coming" id="coming-box">
+      <strong id="coming-name"></strong> is on the way.
+      <div style="font-size:.9rem;color:var(--muted);margin-top:4px">Stay on this page. Their location keeps updating below.</div>
+    </div>
+
+    <div class="card person">
+      {% if photo_url %}<img class="photo" src="{{ photo_url }}" alt="Photo of {{ person_name }}">{% endif %}
+      <div>
+        <h2>{{ person_name }}</h2>
+        <div class="phone">{{ phone }}</div>
+        <div class="live-label"><span class="live-dot"></span><span id="live-status">Live location</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sec-title">Where they are</div>
+      <div class="loc-big" id="coords">{{ initial_lat }}, {{ initial_lng }}</div>
+      <div class="loc-sub">Updated <span id="updated-at">just now</span> &middot; Battery <span id="battery">{{ battery }}%</span></div>
+      <a class="btn btn-map" id="maps-link" target="_blank" rel="noopener"
+         href="https://www.google.com/maps?q={{ initial_lat }},{{ initial_lng }}">Open in Maps</a>
+      <button class="btn btn-map" id="load-map-btn" type="button">Load map (uses more data)</button>
+      <iframe class="map-frame" id="map-frame" title="Map of location" loading="lazy"></iframe>
+    </div>
+
+    <a class="btn btn-call" href="tel:{{ phone }}">Call them</a>
+    <button class="btn btn-ack" id="ack-btn" type="button">I&rsquo;m on my way</button>
+
+    {% if medical %}
+    <div class="card med">
+      <h3>Medical notes</h3>
+      <dl>
+        {% if medical.blood_type %}<dt>Blood type</dt><dd>{{ medical.blood_type }}</dd>{% endif %}
+        {% if medical.allergies %}<dt>Allergies</dt><dd>{{ medical.allergies }}</dd>{% endif %}
+        {% if medical.conditions %}<dt>Conditions</dt><dd>{{ medical.conditions }}</dd>{% endif %}
+        {% if medical.medications %}<dt>Medications</dt><dd>{{ medical.medications }}</dd>{% endif %}
+        {% if medical.doctor_phone %}<dt>Doctor</dt><dd><a href="tel:{{ medical.doctor_phone }}">{{ medical.doctor_phone }}</a></dd>{% endif %}
+        {% if medical.note %}<dt>Note</dt><dd>{{ medical.note }}</dd>{% endif %}
+      </dl>
+    </div>
+    {% endif %}
+
+    <div class="expiry">This link stops working at {{ expires_at }}.</div>
+  </div>
+
+  <!-- CALM / RESOLVED VIEW -->
+  <div id="calm-view" class="hidden">
+    <div class="ok-box">
+      <h1 id="calm-title">False alarm. They are fine.</h1>
+      <p id="calm-text">{{ person_name }} marked this alert as a false alarm. No need to rush anywhere.</p>
+    </div>
+    <div class="card person">
+      {% if photo_url %}<img class="photo" src="{{ photo_url }}" alt="Photo of {{ person_name }}" style="border-color:var(--calm)">{% endif %}
+      <div>
+        <h2>{{ person_name }}</h2>
+        <div class="phone">Status: <span id="calm-status">all clear</span></div>
+      </div>
+    </div>
+    <div class="expiry">This link stops working at {{ expires_at }}.</div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var token = "{{ token }}";
+  var lat = parseFloat("{{ initial_lat }}") || 0;
+  var lng = parseFloat("{{ initial_lng }}") || 0;
+  var alertView = document.getElementById("alert-view");
+  var calmView = document.getElementById("calm-view");
+  var coordsEl = document.getElementById("coords");
+  var updatedEl = document.getElementById("updated-at");
+  var batteryEl = document.getElementById("battery");
+  var mapsLink = document.getElementById("maps-link");
+  var liveStatus = document.getElementById("live-status");
+  var comingBox = document.getElementById("coming-box");
+  var comingName = document.getElementById("coming-name");
+  var pollTimer = null;
+  var ws = null;
+
+  function fmtTime(d){
+    var h = d.getHours(), m = d.getMinutes();
+    var ampm = h >= 12 ? "pm" : "am";
+    h = h % 12; if (h === 0) h = 12;
+    return h + ":" + (m < 10 ? "0" : "") + m + " " + ampm;
+  }
+
+  function showCalm(kind){
+    if (kind === "RESOLVED") {
+      document.getElementById("calm-title").textContent = "All clear. They are safe now.";
+      document.getElementById("calm-text").textContent =
+        "This alert has been resolved. Thank you for being ready to help.";
+      document.getElementById("calm-status").textContent = "resolved";
+    }
+    alertView.classList.add("hidden");
+    calmView.classList.remove("hidden");
+    if (ws) { try { ws.close(); } catch(e){} }
+    if (pollTimer) clearInterval(pollTimer);
+  }
+
+  function updateLocation(msg){
+    if (typeof msg.lat === "number" && typeof msg.lng === "number") {
+      lat = msg.lat; lng = msg.lng;
+      coordsEl.textContent = lat.toFixed(5) + ", " + lng.toFixed(5);
+      mapsLink.href = "https://www.google.com/maps?q=" + lat + "," + lng;
+      var frame = document.getElementById("map-frame");
+      if (frame.style.display === "block") {
+        frame.src = osmUrl(lat, lng);
+      }
+    }
+    if (typeof msg.battery === "number") batteryEl.textContent = msg.battery + "%";
+    var when = msg.at ? new Date(msg.at) : new Date();
+    updatedEl.textContent = fmtTime(when);
+    liveStatus.textContent = "Live location";
+  }
+
+  function handleMsg(msg){
+    if (!msg || typeof msg !== "object") return;
+    if (msg.status === "FALSE_ALARM") { showCalm("FALSE_ALARM"); return; }
+    if (msg.status === "RESOLVED") { showCalm("RESOLVED"); return; }
+    if (msg.status === "ACKNOWLEDGED" && msg.ack_name) showComing(msg.ack_name);
+    if (typeof msg.lat === "number") updateLocation(msg);
+  }
+
+  function showComing(name){
+    comingName.textContent = name;
+    comingBox.style.display = "block";
+  }
+
+  function connectWS(){
+    var url = "{{ ws_url }}";
+    if (!url || !("WebSocket" in window)) { startPolling(); return; }
+    try { ws = new WebSocket(url); } catch(e){ startPolling(); return; }
+    ws.onmessage = function(ev){
+      try { handleMsg(JSON.parse(ev.data)); } catch(e){}
+    };
+    ws.onerror = function(){ startPolling(); };
+    ws.onclose = function(){
+      if (!calmView.classList.contains("hidden")) return;
+      liveStatus.textContent = "Reconnecting location...";
+      setTimeout(connectWS, 5000);
+    };
+  }
+
+  function startPolling(){
+    liveStatus.textContent = "Location updates (checking...)";
+    if (pollTimer) return;
+    var check = function(){
+      fetch("/api/public/alerts/" + encodeURIComponent(token) + "/status", {cache:"no-store"})
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          handleMsg(data);
+          if (data && data.status === "{{ status }}") liveStatus.textContent = "Live location";
+        })
+        .catch(function(){ liveStatus.textContent = "Connection slow, retrying..."; });
+    };
+    check();
+    pollTimer = setInterval(check, 20000);
+  }
+
+  /* Map only loads when the recipient taps the button. Keeps page fast on 2G. */
+  function osmUrl(la, ln){
+    var d = 0.01;
+    return "https://www.openstreetmap.org/export/embed.html?bbox=" +
+      (ln-d) + "%2C" + (la-d) + "%2C" + (ln+d) + "%2C" + (la+d) +
+      "&layer=mapnik&marker=" + la + "%2C" + ln;
+  }
+  document.getElementById("load-map-btn").addEventListener("click", function(){
+    var frame = document.getElementById("map-frame");
+    frame.src = osmUrl(lat, lng);
+    frame.style.display = "block";
+    this.style.display = "none";
+  });
+
+  /* "I'm on my way" */
+  document.getElementById("ack-btn").addEventListener("click", function(){
+    var name = prompt("Your name, so they know who is coming:");
+    if (name === null) return;
+    name = name.trim();
+    if (!name) { alert("Please enter your name so they know who is coming."); return; }
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = "Sending...";
+    fetch("/api/public/alerts/" + encodeURIComponent(token) + "/ack", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({name: name})
+    }).then(function(r){
+      if (!r.ok) throw new Error("bad status");
+      return r.json();
+    }).then(function(){
+      showComing(name);
+      btn.textContent = "You are on the list. Go help them.";
+    }).catch(function(){
+      btn.disabled = false;
+      btn.textContent = "I'm on my way";
+      alert("Could not send. Check your connection and try again.");
+    });
+  });
+
+  /* If the page was rendered already resolved/false alarm, start calm. */
+  var initialStatus = "{{ status }}";
+  if (initialStatus === "FALSE_ALARM" || initialStatus === "RESOLVED") {
+    showCalm(initialStatus);
+  } else {
+    connectWS();
+  }
+})();
+</script>
+</body>
+</html>

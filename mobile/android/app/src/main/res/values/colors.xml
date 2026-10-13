@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sos_red">#D32F2F</color>
+    <color name="sos_red_dark">#9A1B1B</color>
+    <color name="checkin_green">#2E7D32</color>
+    <color name="ink">#111111</color>
+    <color name="paper">#FAFAFA</color>
+</resources>

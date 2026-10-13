@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SafeTap</string>
+    <string name="widget_sos_label">SafeTap SOS</string>
+    <string name="widget_checkin_label">SafeTap Check-in</string>
+    <string name="widget_sos_desc">One big red SOS button. Tap, hold for 3 seconds, and your contacts are alerted.</string>
+    <string name="widget_checkin_desc">One tap starts a check-in timer. Miss it and your contacts get the full SOS.</string>
+</resources>

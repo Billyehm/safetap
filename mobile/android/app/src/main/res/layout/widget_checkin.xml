@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 1x1 home-screen widget: one-tap check-in timer start -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:gravity="center"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/checkin_button"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
+        android:background="@drawable/widget_checkin_bg"
+        android:gravity="center"
+        android:text="CHECK&#10;IN"
+        android:textColor="#FFFFFF"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+</LinearLayout>
