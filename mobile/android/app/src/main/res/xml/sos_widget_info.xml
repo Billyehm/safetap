@@ -1,15 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- SOS widget: ships as 1x1, resizable horizontally to 2x1.
-     targetCellWidth/Height are honored on Android 12 (API 31) and up. -->
+<!-- SOS widget: 4x2 on the home screen (250x110dp, targetCell 4x2 on
+     Android 12+). Resizable if the launcher allows it. -->
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:minWidth="40dp"
-    android:minHeight="40dp"
-    android:minResizeWidth="40dp"
+    android:minWidth="250dp"
+    android:minHeight="110dp"
+    android:minResizeWidth="110dp"
     android:minResizeHeight="40dp"
     android:updatePeriodMillis="0"
     android:initialLayout="@layout/widget_sos"
     android:description="@string/widget_sos_desc"
     android:widgetCategory="home_screen"
-    android:resizeMode="horizontal"
-    android:targetCellWidth="1"
-    android:targetCellHeight="1" />
+    android:resizeMode="horizontal|vertical"
+    android:targetCellWidth="4"
+    android:targetCellHeight="2" />

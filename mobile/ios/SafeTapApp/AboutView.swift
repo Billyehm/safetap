@@ -16,6 +16,10 @@ struct AboutView: View {
                         Text("Your location is only shared while an SOS is active, once every 15 seconds. We never track you in the background at any other time.")
                         Text("Emergency numbers").font(.headline)
                         Text("For information only. SafeTap never dials these for you. National emergency: 112. Lagos rapid response: 767.")
+                        Text("Add the widget to your Home Screen").font(.headline)
+                        Text("iPhone does not let apps place widgets for you, so it takes ten seconds by hand: touch and hold an empty spot on your Home Screen, tap Edit, then Add Widget, search for SafeTap, and choose the wide SOS widget. On the Lock Screen, touch and hold the lock screen, tap Customize, and add SafeTap under Add Widgets.")
+                        Text("SafeTap Family").font(.headline)
+                        Text("The Family plan (up to 10 contacts, unlimited check-in timers, location history during alerts) will be available as an in-app subscription once SafeTap is on the App Store. The free SOS alert itself is never paywalled.")
                     }
                     .font(.body)
                     .foregroundStyle(.secondary)

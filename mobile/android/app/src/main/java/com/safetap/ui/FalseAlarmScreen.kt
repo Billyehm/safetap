@@ -1,6 +1,8 @@
 package com.safetap.ui
 
 import android.Manifest
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -25,6 +27,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,7 +43,11 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.safetap.AlertFirer
 import com.safetap.ApiClient
+import com.safetap.BillingManager
+import com.safetap.CheckInWidgetProvider
 import com.safetap.Prefs
+import com.safetap.SosWidgetProvider
+import com.android.billingclient.api.ProductDetails
 import kotlinx.coroutines.launch
 
 // Safety tab: the FALSE ALARM button, the server address setting, the
@@ -63,6 +70,45 @@ fun FalseAlarmScreen(prefs: Prefs, onLogout: () -> Unit, modifier: Modifier = Mo
     var pinInput by remember { mutableStateOf("") }
     var serverInput by remember { mutableStateOf(prefs.serverUrl) }
     var serverMessage by remember { mutableStateOf("") }
+    var widgetMessage by remember { mutableStateOf("") }
+
+    // Google Play Billing for the Family subscription.
+    val billing = remember(activity) { BillingManager(activity) }
+    var billingReady by remember { mutableStateOf(false) }
+    var products by remember { mutableStateOf(listOf<ProductDetails>()) }
+    var billingMessage by remember { mutableStateOf("") }
+    var isPremium by remember { mutableStateOf(prefs.isPremium) }
+
+    LaunchedEffect(Unit) {
+        billing.onProducts = { products = it }
+        billing.onPurchase = { ok, msg ->
+            billingMessage = msg
+            if (ok) {
+                isPremium = true
+                prefs.isPremium = true
+            }
+        }
+        billing.connect { ok ->
+            billingReady = ok
+            if (ok) {
+                billing.queryProducts()
+                billing.restore { active ->
+                    isPremium = active
+                    prefs.isPremium = active
+                }
+            }
+        }
+    }
+
+    fun pinWidget(provider: Class<*>) {
+        val mgr = context.getSystemService(AppWidgetManager::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && mgr.isRequestPinAppWidgetSupported) {
+            mgr.requestPinAppWidget(ComponentName(context, provider), null, null)
+        } else {
+            widgetMessage = "Your launcher can't pin widgets automatically. " +
+                "Long-press the home screen, tap Widgets, and add SafeTap manually."
+        }
+    }
 
     fun standDown(pin: String) {
         val alertId = prefs.activeAlertId
@@ -259,6 +305,95 @@ fun FalseAlarmScreen(prefs: Prefs, onLogout: () -> Unit, modifier: Modifier = Mo
         PermissionRow("Send SMS", Manifest.permission.SEND_SMS)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             PermissionRow("Notifications", Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        Spacer(Modifier.height(32.dp))
+        Text("Home screen widgets", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Put the SOS button on your home screen so it is one tap away.",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = { pinWidget(SosWidgetProvider::class.java) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Add SOS widget to home screen")
+        }
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = { pinWidget(CheckInWidgetProvider::class.java) },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Add check-in widget to home screen")
+        }
+        if (widgetMessage.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            Text(widgetMessage, style = MaterialTheme.typography.bodySmall)
+        }
+
+        Spacer(Modifier.height(32.dp))
+        Text("SafeTap Family", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Free forever: the SOS alert, 3 contacts, tracking page. " +
+                "Family adds up to 10 contacts, unlimited check-in timers, " +
+                "and location history during alerts. Paid through Google Play.",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Spacer(Modifier.height(8.dp))
+        if (isPremium) {
+            Text(
+                "Family is active on this device.",
+                color = Color(0xFF2E7D32),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        } else if (!billingReady) {
+            Text(
+                "Subscriptions appear in the Play Store release. " +
+                    "This test build cannot sell them yet.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary
+            )
+        } else if (products.isEmpty()) {
+            Text(
+                "No subscription products found. They must be created in " +
+                    "Play Console first.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.secondary
+            )
+        } else {
+            products.forEach { product ->
+                val price = product.subscriptionOfferDetails
+                    ?.firstOrNull()?.pricingPhases?.pricingPhaseList
+                    ?.firstOrNull()?.formattedPrice ?: ""
+                val label = when (product.productId) {
+                    BillingManager.PRODUCT_YEARLY -> "Family yearly"
+                    else -> "Family monthly"
+                }
+                OutlinedButton(
+                    onClick = { billing.launchPurchase(product) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("$label — $price")
+                }
+                Spacer(Modifier.height(8.dp))
+            }
+            TextButton(onClick = {
+                billing.restore { active ->
+                    isPremium = active
+                    prefs.isPremium = active
+                    billingMessage = if (active) "Family restored."
+                    else "No active Family subscription found."
+                }
+            }) {
+                Text("Restore purchase")
+            }
+        }
+        if (billingMessage.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            Text(billingMessage, color = MaterialTheme.colorScheme.primary)
         }
 
         Spacer(Modifier.height(32.dp))

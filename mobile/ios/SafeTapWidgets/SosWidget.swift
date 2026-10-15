@@ -54,6 +54,9 @@ struct SosWidgetView: View {
         switch family {
         case .accessoryRectangular:
             LockScreenView(entry: entry)
+        case .systemMedium:
+            // Wide (roughly 4x2) layout: big SOS button left, label right.
+            WideHomeScreenView(entry: entry)
         default:
             HomeScreenView(entry: entry)
         }
@@ -136,6 +139,51 @@ private struct HomeScreenView: View {
     }
 }
 
+/// Wide Home Screen widget (systemMedium, roughly 4x2): big SOS button on
+/// the left, label and hint on the right. iOS does not allow custom cell
+/// sizes, so systemMedium is the closest to the Android 4x2 widget.
+private struct WideHomeScreenView: View {
+    let entry: SosEntry
+
+    var body: some View {
+        ZStack {
+            Color.red
+            HStack(spacing: 12) {
+                if #available(iOS 17, *) {
+                    Button(intent: SosIntent()) {
+                        Text("SOS")
+                            .font(.largeTitle).bold()
+                            .foregroundStyle(.white)
+                            .frame(width: 96, height: 96)
+                            .background(.white.opacity(0.25))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Link(destination: URL(string: "safetap://sos")!) {
+                        Text("SOS")
+                            .font(.largeTitle).bold()
+                            .foregroundStyle(.white)
+                            .frame(width: 96, height: 96)
+                            .background(.white.opacity(0.25))
+                            .clipShape(Circle())
+                    }
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("SafeTap SOS")
+                        .font(.headline).bold()
+                        .foregroundStyle(.white)
+                    Text("Tap for emergency")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+                Spacer()
+            }
+            .padding()
+        }
+    }
+}
+
 /// Lock Screen widget (accessoryRectangular): compact, monochrome-friendly.
 /// Lock screen widgets are tinted by the system, so this stays simple.
 private struct LockScreenView: View {
@@ -177,7 +225,7 @@ struct SosWidget: Widget {
         }
         .configurationDisplayName("SafeTap SOS")
         .description("One-tap emergency SOS for your Home Screen and Lock Screen.")
-        .supportedFamilies([.systemSmall, .accessoryRectangular])
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular])
     }
 }
 

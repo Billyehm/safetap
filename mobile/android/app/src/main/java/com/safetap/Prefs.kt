@@ -52,6 +52,12 @@ class Prefs(context: Context) {
             .trim().trimEnd('/')
         set(v) = store.edit().putString("server_url", v.trim().trimEnd('/')).apply()
 
+    // SafeTap Family subscription state, set from Google Play Billing.
+    // The free SOS alert is never gated by this.
+    var isPremium: Boolean
+        get() = store.getBoolean("is_premium", false)
+        set(v) = store.edit().putBoolean("is_premium", v).apply()
+
     // The login PIN, kept encrypted. Needed because the false-alarm call
     // sends the PIN to the server for verification (biometric alone cannot
     // recover it).

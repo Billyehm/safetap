@@ -12,8 +12,8 @@ android {
         applicationId = "com.safetap"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = 2
+        versionName = "0.2.0"
     }
 
     buildTypes {
@@ -71,4 +71,7 @@ dependencies {
 
     // GPS fixes for the SOS flow and the 15-second location stream
     implementation("com.google.android.gms:play-services-location:21.3.0")
+
+    // Google Play Billing for the SafeTap Family subscription
+    implementation("com.android.billingclient:billing-ktx:8.0.0")
 }

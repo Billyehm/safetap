@@ -1,20 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 1x1 home-screen widget: one big red SOS button. Tapping it opens
-     SosActivity, where the 3-second press-and-hold arming happens. -->
+<!-- 4x2 home-screen widget: big red SOS button on the left, label and hint
+     on the right. Tapping opens SosActivity, where the 3-second
+     press-and-hold arming and the 5-second cancel countdown live. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:gravity="center"
-    android:orientation="vertical">
+    android:background="@drawable/widget_sos_panel"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="12dp">
 
     <TextView
         android:id="@+id/sos_button"
-        android:layout_width="72dp"
-        android:layout_height="72dp"
+        android:layout_width="96dp"
+        android:layout_height="96dp"
         android:background="@drawable/widget_sos_bg"
         android:gravity="center"
         android:text="SOS"
         android:textColor="#FFFFFF"
-        android:textSize="22sp"
+        android:textSize="26sp"
         android:textStyle="bold" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:layout_marginStart="12dp"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="SafeTap SOS"
+            android:textColor="#FFFFFF"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="Tap, hold 3s to send your alert"
+            android:textColor="#FFCDD2"
+            android:textSize="12sp" />
+    </LinearLayout>
 </LinearLayout>
