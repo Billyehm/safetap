@@ -73,10 +73,11 @@ class CheckInActivity : ComponentActivity() {
             val token = prefs.token
             if (token != null && checkinId != null) {
                 try {
-                    ApiClient.cancelCheckin(token, checkinId)
+                    ApiClient.confirmCheckin(token, checkinId)
                 } catch (e: Exception) {
-                    // The timer is disarmed on the phone either way; the
-                    // backend will expire the check-in on its own.
+                    // The timer is disarmed on the phone either way. If the
+                    // confirm did not reach the server, its watchdog may
+                    // still fire the SOS, which you can then stand down.
                 }
             }
             Toast.makeText(this@CheckInActivity, "Glad you are okay.", Toast.LENGTH_SHORT).show()

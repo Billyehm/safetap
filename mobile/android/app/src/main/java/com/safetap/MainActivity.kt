@@ -4,9 +4,9 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Contacts
-import androidx.compose.material.icons.filled.MedicalServices
-import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -69,9 +69,9 @@ private data class Tab(val title: String, val icon: ImageVector)
 @Composable
 private fun MainTabs(prefs: Prefs, startOnFalseAlarm: Boolean, onLogout: () -> Unit) {
     val tabs = listOf(
-        Tab("Contacts", Icons.Filled.Contacts),
-        Tab("Medical", Icons.Filled.MedicalServices),
-        Tab("Safety", Icons.Filled.Shield)
+        Tab("Contacts", Icons.Filled.Person),
+        Tab("Medical", Icons.Filled.Home),
+        Tab("Safety", Icons.Filled.Settings)
     )
     var selected by remember { mutableIntStateOf(if (startOnFalseAlarm) 2 else 0) }
     Scaffold(

@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -20,13 +21,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.safetap.ApiClient
 import com.safetap.MedicalProfile
 import com.safetap.Prefs
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
-// One screen, plain language. Everything here rides along with every
-// alert and shows on the contact's tracking page. Stored encrypted, only
-// shared while an alert is active.
+// One screen, plain language. Saved to the server (encrypted there), so it
+// rides along with every alert and shows on the contact's tracking page.
+// A local copy is kept too, for offline reference.
 @Composable
 fun MedicalScreen(prefs: Prefs, modifier: Modifier = Modifier) {
     val saved = remember { prefs.getMedical() }
@@ -37,7 +40,27 @@ fun MedicalScreen(prefs: Prefs, modifier: Modifier = Modifier) {
     var doctor by remember { mutableStateOf(saved.doctorNumber) }
     var note by remember { mutableStateOf(saved.note) }
     var message by remember { mutableStateOf("") }
+    var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    fun applyJson(o: JSONObject) {
+        blood = o.optString("blood_type", "")
+        allergies = o.optString("allergies", "")
+        conditions = o.optString("conditions", "")
+        meds = o.optString("medications", "")
+        doctor = o.optString("doctor_phone", "")
+        note = o.optString("note", "")
+    }
+
+    // Load the server copy on open (it is the source of truth).
+    LaunchedEffect(Unit) {
+        try {
+            val token = prefs.token ?: return@LaunchedEffect
+            applyJson(ApiClient.getMedical(token))
+        } catch (e: Exception) {
+            // Offline: the cached copy stays on screen.
+        }
+    }
 
     Column(
         modifier = modifier.fillMaxSize().padding(16.dp)
@@ -66,23 +89,43 @@ fun MedicalScreen(prefs: Prefs, modifier: Modifier = Modifier) {
         Spacer(Modifier.height(16.dp))
         Button(
             onClick = {
+                busy = true
                 scope.launch {
-                    prefs.saveMedical(
-                        MedicalProfile(
-                            bloodType = blood.trim(),
-                            allergies = allergies.trim(),
-                            conditions = conditions.trim(),
-                            medications = meds.trim(),
-                            doctorNumber = doctor.trim(),
-                            note = note.trim()
-                        )
+                    val profile = MedicalProfile(
+                        bloodType = blood.trim(),
+                        allergies = allergies.trim(),
+                        conditions = conditions.trim(),
+                        medications = meds.trim(),
+                        doctorNumber = doctor.trim(),
+                        note = note.trim()
                     )
-                    message = "Saved. This goes out with every alert."
+                    try {
+                        val token = prefs.token
+                            ?: throw IllegalStateException("Not logged in")
+                        ApiClient.saveMedical(
+                            token,
+                            JSONObject()
+                                .put("blood_type", profile.bloodType)
+                                .put("allergies", profile.allergies)
+                                .put("conditions", profile.conditions)
+                                .put("medications", profile.medications)
+                                .put("doctor_phone", profile.doctorNumber)
+                                .put("note", profile.note)
+                        )
+                        prefs.saveMedical(profile)
+                        message = "Saved. This goes out with every alert."
+                    } catch (e: Exception) {
+                        message = "Could not reach the server. Saved on this phone only."
+                        prefs.saveMedical(profile)
+                    } finally {
+                        busy = false
+                    }
                 }
             },
+            enabled = !busy,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Save")
+            Text(if (busy) "Saving..." else "Save")
         }
         if (message.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))

@@ -31,9 +31,24 @@ android {
     buildFeatures {
         compose = true
     }
+    packaging {
+        resources {
+            // Kotlin multiplatform metadata duplicates across androidx jars; not needed on Android
+            excludes += "nonJvmMain/**"
+            excludes += "commonMain/**"
+            excludes += "jvmMain/**"
+            excludes += "META-INF/*.kotlin_module"
+            excludes += "META-INF/kotlin-project-structure-metadata.json"
+        }
+    }
 }
 
 dependencies {
+    // collection-ktx 1.2.0 duplicates classes now in collection 1.4+; drop the old one
+    configurations.configureEach {
+        exclude(group = "androidx.collection", module = "collection-ktx")
+    }
+
     // Core
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")

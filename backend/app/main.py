@@ -289,6 +289,20 @@ def trigger_alert(body: TriggerIn, background: BackgroundTasks,
     return alert_summary(db, alert)
 
 
+@app.get("/api/alerts/active")
+def get_active_alert(user: User = Depends(current_user), db=Depends(db_session)):
+    """The user's currently active alert, if any. Used by the app to attach
+    to a check-in SOS that the server fired on its own."""
+    alert = (db.query(Alert).filter(Alert.user_id == user.id,
+                                    Alert.status.in_(Alert.ACTIVE))
+               .order_by(Alert.started_at.desc()).first())
+    if not alert:
+        return {"active": False}
+    return {"active": True, "id": alert.id, "type": alert.type,
+            "status": alert.status,
+            "tracking_url": f"{config.BASE_URL}/t/{alert.tracking_token}"}
+
+
 @app.get("/api/alerts/{alert_id}")
 def get_alert(alert_id: str, user: User = Depends(current_user), db=Depends(db_session)):
     return alert_summary(db, alert_or_404(db, alert_id, user))

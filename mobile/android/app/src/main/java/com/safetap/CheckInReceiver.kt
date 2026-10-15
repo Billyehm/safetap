@@ -11,11 +11,22 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 // Owns the check-in timer lifecycle:
-//   widget tap -> POST /api/checkins, arm an exact alarm
+//
+//   widget tap -> POST /api/checkins, arm an exact alarm at check-in time
 //   alarm fires -> full-screen CheckInActivity, loud buzz, 10-minute grace
-//   grace expires -> the full SOS fires, same as a panic press
+//   grace expires -> the SERVER has fired the SOS by now (its watchdog runs
+//     on checkin_at + 10 minutes). The phone attaches to that alert and
+//     starts streaming location to it. The phone never fires a second SOS,
+//     so contacts are never notified twice.
+//
+// If the phone is offline at grace end, the server still notified the
+// contacts. The streaming service keeps polling until it finds the alert.
 class CheckInReceiver : BroadcastReceiver() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -59,12 +70,12 @@ class CheckInReceiver : BroadcastReceiver() {
             return
         }
         try {
-            val id = ApiClient.createCheckin(token, DEFAULT_CHECKIN_MINUTES)
+            val at = System.currentTimeMillis() + DEFAULT_CHECKIN_MINUTES * 60_000L
+            val iso = isoUtc(at)
+            val res = ApiClient.createCheckin(token, iso, "Started from the widget")
+            val id = res.getString("id")
             prefs.activeCheckinId = id
-            scheduleAlarm(
-                context, ACTION_CHECKIN_EXPIRED,
-                System.currentTimeMillis() + DEFAULT_CHECKIN_MINUTES * 60_000L
-            )
+            scheduleAlarm(context, ACTION_CHECKIN_EXPIRED, at)
             toastOnMain(
                 context,
                 "Check-in started. We will ask if you are okay in $DEFAULT_CHECKIN_MINUTES minutes."
@@ -82,7 +93,7 @@ class CheckInReceiver : BroadcastReceiver() {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         context.startActivity(open)
-        // If they ignore it for 10 minutes, the full SOS fires.
+        // If they ignore it for 10 minutes, the server fires the SOS.
         scheduleAlarm(
             context, ACTION_CHECKIN_ESCALATE,
             System.currentTimeMillis() + ESCALATE_AFTER_MINUTES * 60_000L
@@ -91,11 +102,29 @@ class CheckInReceiver : BroadcastReceiver() {
 
     private suspend fun onEscalate(context: Context) {
         val prefs = Prefs(context)
-        val checkinId = prefs.activeCheckinId ?: return
-        // Still no "I'm fine": fire the full SOS as a missed check-in.
-        AlertFirer.fire(context, "checkin_missed")
+        if (prefs.activeCheckinId == null) return
         prefs.activeCheckinId = null
-        toastOnMain(context, "Check-in missed. SOS fired.")
+        val token = prefs.token
+        if (token == null) {
+            toastOnMain(context, "Check-in missed.")
+            return
+        }
+        // The server should have fired the SOS by now. Attach to it; if it
+        // is not there yet (or we are offline), the service keeps polling.
+        try {
+            val active = ApiClient.getActiveAlert(token)
+            if (active.optBoolean("active", false)) {
+                val alertId = active.getString("id")
+                prefs.activeAlertId = alertId
+                AlertFirer.startStreamingService(context, alertId)
+                toastOnMain(context, "Check-in missed. SOS fired, sharing your location.")
+                return
+            }
+        } catch (e: Exception) {
+            // Fall through to attach mode below.
+        }
+        AlertFirer.startAttachService(context)
+        toastOnMain(context, "Check-in missed. SOS fired, sharing your location.")
     }
 
     private fun scheduleAlarm(context: Context, action: String, atMillis: Long) {
@@ -142,9 +171,14 @@ class CheckInReceiver : BroadcastReceiver() {
         const val ACTION_CHECKIN_ESCALATE = "com.safetap.CHECKIN_ESCALATE"
         const val ACTION_CANCEL_CHECKIN = "com.safetap.CANCEL_CHECKIN"
 
-        // One-tap default. A duration picker can replace this later;
-        // the backend takes any duration_minutes.
+        // One-tap default. A duration picker can replace this later.
         const val DEFAULT_CHECKIN_MINUTES = 60
         const val ESCALATE_AFTER_MINUTES = 10
+
+        fun isoUtc(millis: Long): String {
+            val f = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+            f.timeZone = TimeZone.getTimeZone("UTC")
+            return f.format(Date(millis))
+        }
     }
 }

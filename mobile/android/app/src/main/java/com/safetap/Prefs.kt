@@ -45,7 +45,21 @@ class Prefs(context: Context) {
         get() = store.getString("user_phone", "") ?: ""
         set(v) = store.edit().putString("user_phone", v).apply()
 
-    fun setPin(pin: String) {
+    // Backend address, changeable in the Safety tab so the user can point
+    // at their own machine without rebuilding the app.
+    var serverUrl: String
+        get() = (store.getString("server_url", null) ?: ApiClient.DEFAULT_BASE_URL)
+            .trim().trimEnd('/')
+        set(v) = store.edit().putString("server_url", v.trim().trimEnd('/')).apply()
+
+    // The login PIN, kept encrypted. Needed because the false-alarm call
+    // sends the PIN to the server for verification (biometric alone cannot
+    // recover it).
+    var pin: String?
+        get() = store.getString("pin_plain", null)
+        set(v) = store.edit().putString("pin_plain", v).apply()
+
+    fun savePinHash(pin: String) {
         val hash = MessageDigest.getInstance("SHA-256")
             .digest(pin.toByteArray())
             .joinToString("") { "%02x".format(it) }

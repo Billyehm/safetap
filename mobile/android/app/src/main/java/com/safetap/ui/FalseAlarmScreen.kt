@@ -43,12 +43,13 @@ import com.safetap.ApiClient
 import com.safetap.Prefs
 import kotlinx.coroutines.launch
 
-// Safety tab: the FALSE ALARM button and the permission checklist.
+// Safety tab: the FALSE ALARM button, the server address setting, the
+// permission checklist, and emergency numbers.
 //
 // False alarm needs proof it is really you: fingerprint/face via
-// BiometricPrompt, or the PIN as a fallback. On success the backend is
-// told immediately and every contact gets the "false alarm, they are
-// fine" update. The streaming service stops too.
+// BiometricPrompt, or the PIN typed in. Either way the PIN goes to the
+// server, which verifies it and tells every contact "false alarm, they
+// are fine". The location stream stops too.
 @Composable
 fun FalseAlarmScreen(prefs: Prefs, onLogout: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -60,25 +61,34 @@ fun FalseAlarmScreen(prefs: Prefs, onLogout: () -> Unit, modifier: Modifier = Mo
     var busy by remember { mutableStateOf(false) }
     var showPinDialog by remember { mutableStateOf(false) }
     var pinInput by remember { mutableStateOf("") }
+    var serverInput by remember { mutableStateOf(prefs.serverUrl) }
+    var serverMessage by remember { mutableStateOf("") }
 
-    fun resolve() {
-        val alertId = prefs.activeAlertId ?: return
-        val token = prefs.token ?: return
+    fun standDown(pin: String) {
+        val alertId = prefs.activeAlertId
+        if (alertId == null) {
+            message = "No active alert."
+            return
+        }
         busy = true
         scope.launch {
             try {
-                ApiClient.resolveAlert(token, alertId, falseAlarm = true)
+                val token = prefs.token ?: throw IllegalStateException("Not logged in")
+                if (alertId.startsWith("local-")) {
+                    // Fired offline and never reached the server: nothing to stand down.
+                    message = "The alert never reached the server, so there is no one to stand down."
+                } else {
+                    ApiClient.falseAlarm(token, alertId, pin)
+                    message = "Done. Your contacts have been told it was a false alarm."
+                }
                 AlertFirer.stopStreamingService(context)
                 prefs.activeAlertId = null
                 activeAlert = null
-                message = "Done. Your contacts have been told it was a false alarm."
             } catch (e: Exception) {
-                // Offline: stop the local stream anyway and let the next
-                // sync carry the false-alarm state to the backend.
-                AlertFirer.stopStreamingService(context)
-                prefs.activeAlertId = null
-                activeAlert = null
-                message = "Phone stream stopped. It will tell the server when you are back online."
+                // Do NOT clear state here: the alert is still live on the
+                // server and contacts are still watching it. Say so plainly.
+                message = "Could not reach the server, so your alert is still live. " +
+                    "Try again when you have a connection."
             } finally {
                 busy = false
             }
@@ -96,9 +106,15 @@ fun FalseAlarmScreen(prefs: Prefs, onLogout: () -> Unit, modifier: Modifier = Mo
             ContextCompat.getMainExecutor(context),
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                    resolve()
+                    val pin = prefs.pin
+                    if (pin.isNullOrBlank()) {
+                        // Should not happen: the PIN is saved at login.
+                        showPinDialog = true
+                    } else {
+                        standDown(pin)
+                    }
                 }
-                override fun onAuthenticationError(code: Int, err: String) {
+                override fun onAuthenticationError(code: Int, err: CharSequence) {
                     if (code != BiometricPrompt.ERROR_USER_CANCELED &&
                         code != BiometricPrompt.ERROR_NEGATIVE_BUTTON
                     ) {
@@ -110,6 +126,10 @@ fun FalseAlarmScreen(prefs: Prefs, onLogout: () -> Unit, modifier: Modifier = Mo
     }
 
     fun authenticate() {
+        if (activeAlert == null) {
+            message = "No active alert."
+            return
+        }
         if (canUseBiometric) {
             prompt.authenticate(
                 BiometricPrompt.PromptInfo.Builder()
@@ -134,37 +154,82 @@ fun FalseAlarmScreen(prefs: Prefs, onLogout: () -> Unit, modifier: Modifier = Mo
         Text("Safety", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(16.dp))
 
-        if (activeAlert == null) {
+        if (activeAlert != null) {
             Text(
-                "No active alert right now.",
-                style = MaterialTheme.typography.bodyLarge
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                "If you ever trigger the SOS by mistake, come here and tap the button below. " +
-                    "It asks for your fingerprint or PIN first, so nobody else can cancel your alert.",
+                "An SOS is live right now. If this was a mistake, stand it down below. " +
+                    "Your contacts will be told immediately.",
                 style = MaterialTheme.typography.bodyMedium
             )
-        } else {
-            Text(
-                "There is an ACTIVE alert. If this was a mistake, cancel it now " +
-                    "and your contacts will be told immediately.",
-                style = MaterialTheme.typography.bodyLarge
-            )
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
             Button(
                 onClick = { authenticate() },
                 enabled = !busy,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E7D32)),
-                modifier = Modifier.fillMaxWidth().height(72.dp)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF2E7D32),
+                    contentColor = Color.White
+                ),
+                modifier = Modifier.fillMaxWidth().height(64.dp)
             ) {
                 Text("FALSE ALARM, I'M FINE")
             }
+        } else {
+            Text(
+                "No SOS is live. If you trigger one by accident, come back here " +
+                    "to stand it down.",
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
-
         if (message.isNotEmpty()) {
             Spacer(Modifier.height(12.dp))
             Text(message, color = MaterialTheme.colorScheme.primary)
+        }
+
+        Spacer(Modifier.height(32.dp))
+        Text("Server", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "The address of your SafeTap backend. Point it at the machine " +
+                "running the server, then test it.",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = serverInput,
+            onValueChange = { serverInput = it; serverMessage = "" },
+            label = { Text("Server address") },
+            placeholder = { Text("http://192.168.1.40:8000") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+        Spacer(Modifier.height(8.dp))
+        RowButtons(
+            onSave = {
+                val clean = serverInput.trim().trimEnd('/')
+                if (!clean.startsWith("http://") && !clean.startsWith("https://")) {
+                    serverMessage = "Start the address with http:// or https://"
+                    return@RowButtons
+                }
+                prefs.serverUrl = clean
+                ApiClient.baseUrl = clean
+                serverMessage = "Saved. New alerts will use this server."
+            },
+            onTest = {
+                val clean = serverInput.trim().trimEnd('/')
+                ApiClient.baseUrl = clean
+                scope.launch {
+                    serverMessage = if (ApiClient.healthCheck()) {
+                        prefs.serverUrl = clean
+                        "Connected. This server is answering."
+                    } else {
+                        "No answer from that address. Check it and your connection."
+                    }
+                }
+            }
+        )
+        if (serverMessage.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            Text(serverMessage, color = MaterialTheme.colorScheme.primary)
         }
 
         Spacer(Modifier.height(32.dp))
@@ -228,19 +293,32 @@ fun FalseAlarmScreen(prefs: Prefs, onLogout: () -> Unit, modifier: Modifier = Mo
             },
             confirmButton = {
                 TextButton(onClick = {
-                    if (prefs.checkPin(pinInput)) {
-                        showPinDialog = false
-                        pinInput = ""
-                        resolve()
-                    } else {
-                        message = "Wrong PIN. Try again."
+                    if (pinInput.isBlank()) {
+                        return@TextButton
                     }
+                    showPinDialog = false
+                    val entered = pinInput
+                    pinInput = ""
+                    standDown(entered)
                 }) { Text("Confirm") }
             },
             dismissButton = {
                 TextButton(onClick = { showPinDialog = false; pinInput = "" }) { Text("Cancel") }
             }
         )
+    }
+}
+
+@Composable
+private fun RowButtons(onSave: () -> Unit, onTest: () -> Unit) {
+    androidx.compose.foundation.layout.Row(modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(onClick = onSave, modifier = Modifier.weight(1f)) {
+            Text("Save")
+        }
+        Spacer(Modifier.padding(4.dp))
+        Button(onClick = onTest, modifier = Modifier.weight(1f)) {
+            Text("Test connection")
+        }
     }
 }
 

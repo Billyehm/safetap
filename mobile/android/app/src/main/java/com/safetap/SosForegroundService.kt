@@ -8,6 +8,7 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.location.Location
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -18,11 +19,17 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withTimeoutOrNull
 
 // Runs while an alert is live. Every 15 seconds it grabs a GPS fix and
@@ -45,6 +52,11 @@ class SosForegroundService : Service() {
         when (intent?.action) {
             ACTION_START -> {
                 alertId = intent.getStringExtra(EXTRA_ALERT_ID)
+                startAsForeground()
+                startLoop()
+            }
+            ACTION_ATTACH -> {
+                alertId = null // attach mode: find the alert first
                 startAsForeground()
                 startLoop()
             }
@@ -97,15 +109,35 @@ class SosForegroundService : Service() {
     }
 
     private suspend fun tick(prefs: Prefs) {
-        var id = alertId ?: return
+        var id = alertId
         val token = prefs.token ?: return
 
-        val fix = withTimeoutOrNull(10_000) {
+        // Attach mode: the server fired a check-in SOS on its own and we do
+        // not know the id yet. Poll until it appears.
+        if (id == null) {
+            try {
+                val active = ApiClient.getActiveAlert(token)
+                if (active.optBoolean("active", false)) {
+                    id = active.getString("id")
+                    alertId = id
+                    prefs.activeAlertId = id
+                } else {
+                    return // try again next round
+                }
+            } catch (e: Exception) {
+                return // offline or server hiccup; try again next round
+            }
+        }
+
+        val fix: Location? = withTimeoutOrNull(10_000) {
             val fused = LocationServices.getFusedLocationProviderClient(this@SosForegroundService)
-            fused.getCurrentLocation(
-                Priority.PRIORITY_HIGH_ACCURACY,
-                CancellationTokenSource().token
-            ).await()
+            suspendCancellableCoroutine { cont ->
+                fused.getCurrentLocation(
+                    Priority.PRIORITY_HIGH_ACCURACY,
+                    CancellationTokenSource().token
+                ).addOnSuccessListener { loc -> cont.resume(loc) }
+                    .addOnFailureListener { e -> cont.resumeWithException(e) }
+            }
         }
         val lat = fix?.latitude ?: prefs.lastLat
         val lng = fix?.longitude ?: prefs.lastLng
@@ -149,6 +181,7 @@ class SosForegroundService : Service() {
 
     companion object {
         const val ACTION_START = "com.safetap.SERVICE_START"
+        const val ACTION_ATTACH = "com.safetap.SERVICE_ATTACH"
         const val ACTION_STOP = "com.safetap.SERVICE_STOP"
         const val EXTRA_ALERT_ID = "alert_id"
 

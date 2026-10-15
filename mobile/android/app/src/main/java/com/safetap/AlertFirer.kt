@@ -8,8 +8,10 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
-import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 // One place that knows how to fire an alert, used by both the panic SOS
 // flow (SosActivity) and the missed check-in escalation (CheckInReceiver).
@@ -64,8 +66,12 @@ object AlertFirer {
         return try {
             val fused = LocationServices.getFusedLocationProviderClient(context)
             val cts = CancellationTokenSource()
-            val loc = withTimeoutOrNull(timeoutMs) {
-                fused.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token).await()
+            val loc: android.location.Location? = withTimeoutOrNull(timeoutMs) {
+                suspendCancellableCoroutine { cont ->
+                    fused.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, cts.token)
+                        .addOnSuccessListener { l -> cont.resume(l) }
+                        .addOnFailureListener { e -> cont.resumeWithException(e) }
+                }
             }
             if (loc != null) {
                 val prefs = Prefs(context)
@@ -118,6 +124,16 @@ object AlertFirer {
         val intent = Intent(context, SosForegroundService::class.java).apply {
             action = SosForegroundService.ACTION_START
             putExtra(SosForegroundService.EXTRA_ALERT_ID, alertId)
+        }
+        ContextCompat.startForegroundService(context, intent)
+    }
+
+    // Start the service without an alert id. It polls the server until the
+    // check-in SOS appears, then streams to it. Used when the phone was
+    // offline (or the watchdog had not ticked yet) at escalation time.
+    fun startAttachService(context: Context) {
+        val intent = Intent(context, SosForegroundService::class.java).apply {
+            action = SosForegroundService.ACTION_ATTACH
         }
         ContextCompat.startForegroundService(context, intent)
     }
