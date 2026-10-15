@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,6 +40,8 @@ fun LoginScreen(prefs: Prefs, onLoggedIn: (String) -> Unit) {
     var pin by remember { mutableStateOf("") }
     var error by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var serverInput by remember { mutableStateOf(prefs.serverUrl) }
+    var serverMessage by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     val registering = mode == "register"
 
@@ -134,10 +137,46 @@ fun LoginScreen(prefs: Prefs, onLoggedIn: (String) -> Unit) {
             }
         }
         Spacer(Modifier.height(16.dp))
+        Text("Server address", style = MaterialTheme.typography.titleSmall)
         Text(
-            "Server: ${prefs.serverUrl}. Change it in the Safety tab after logging in.",
+            "The computer running the SafeTap backend, on your Wi-Fi.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.secondary
         )
+        Spacer(Modifier.height(4.dp))
+        OutlinedTextField(
+            value = serverInput,
+            onValueChange = { serverInput = it; serverMessage = "" },
+            placeholder = { Text("http://192.168.1.40:8000") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedButton(
+            onClick = {
+                val clean = serverInput.trim().trimEnd('/')
+                if (!clean.startsWith("http://") && !clean.startsWith("https://")) {
+                    serverMessage = "Start the address with http:// or https://"
+                    return@OutlinedButton
+                }
+                ApiClient.baseUrl = clean
+                scope.launch {
+                    serverMessage = if (ApiClient.healthCheck()) {
+                        prefs.serverUrl = clean
+                        "Connected. This server is answering."
+                    } else {
+                        "No answer from that address. Check it and your Wi-Fi."
+                    }
+                }
+            },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Test connection")
+        }
+        if (serverMessage.isNotEmpty()) {
+            Spacer(Modifier.height(4.dp))
+            Text(serverMessage, color = MaterialTheme.colorScheme.primary)
+        }
     }
 }
