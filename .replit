@@ -1,0 +1,6 @@
+# Replit one-click run config for the SafeTap backend.
+# Import https://github.com/Billyehm/safetap into Replit and press Run.
+# Before running, add SAFETAP_SECRET_KEY in Replit's Secrets tab
+# (generate one with: openssl rand -hex 32 on your laptop).
+# Never commit a real key to the repo; this signs login tokens.
+run = "cd backend && pip install -q -r requirements.txt && MOCK_GATEWAYS=1 uvicorn app.main:app --host 0.0.0.0 --port $PORT"
