@@ -12,9 +12,8 @@ COPY backend/templates/ ./templates/
 RUN mkdir -p data
 
 ENV MOCK_GATEWAYS=1 \
-    PYTHONUNBUFFERED=1 \
-    SAFETAP_SECRET_KEY=41d5ca28eb904b52cd8522fea90012119b56bceca161cb42db5465144fc0f56f
-
-# Set SAFETAP_BASE_URL to your Space URL after creation, e.g.
-# https://<username>-safetap-backend.hf.space, then rebuild.
+    PYTHONUNBUFFERED=1
+# Set these in the Space's Settings -> Secrets (never bake secrets into the image):
+#   SAFETAP_SECRET_KEY  (random 32-byte hex)
+#   SAFETAP_BASE_URL    (your Space URL, e.g. https://<user>-safetap-backend.hf.space)
 CMD uvicorn app.main:app --host 0.0.0.0 --port 7860
