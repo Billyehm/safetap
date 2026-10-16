@@ -1,12 +1,29 @@
 """SafeTap backend configuration. Everything comes from env with sane MVP defaults."""
 
 import os
+from pathlib import Path
+from urllib.parse import unquote
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SECRET_KEY = os.environ.get("SAFETAP_SECRET_KEY", "dev-secret-change-me")
 DATABASE_URL = os.environ.get("SAFETAP_DATABASE_URL", f"sqlite:///{BASE_DIR}/data/safetap.db")
 BASE_URL = os.environ.get("SAFETAP_BASE_URL", "http://localhost:8000").rstrip("/")
+
+
+def ensure_sqlite_database_directory(database_url: str) -> None:
+    """Create the parent directory required by file-based SQLite URLs."""
+    if not database_url.startswith("sqlite"):
+        return
+
+    _, separator, database = database_url.partition(":///")
+    if not separator or not database or database == ":memory:" or database.startswith("file:"):
+        return
+
+    Path(unquote(database)).parent.mkdir(parents=True, exist_ok=True)
+
+
+ensure_sqlite_database_directory(DATABASE_URL)
 
 # Gateway behaviour. MOCK_GATEWAYS=1 (default) logs instead of calling providers,
 # so the whole flow can be tested without spending a naira.

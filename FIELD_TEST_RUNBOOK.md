@@ -41,7 +41,7 @@ export TERMII_API_KEY=<your key>
 export TERMII_SENDER_ID=<your sender id>
 .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
-
+>
 Keep `MOCK_GATEWAYS=1` for the first dry run if you want to test the full
 flow without spending a kobo. The mock sends are printed in the server log.
 
