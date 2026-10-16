@@ -1,0 +1,18 @@
+# Render Blueprint: one-click deploy of the SafeTap backend.
+# In Render: New -> Blueprint -> select Billyehm/safetap -> Apply.
+services:
+  - type: web
+    name: safetap-backend
+    runtime: docker
+    rootDir: backend
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: MOCK_GATEWAYS
+        value: 1
+      - key: SAFETAP_SECRET_KEY
+        value: 41d5ca28eb904b52cd8522fea90012119b56bceca161cb42db5465144fc0f56f
+      # Update this if you rename the service; Render URLs are
+      # https://<service-name>.onrender.com
+      - key: SAFETAP_BASE_URL
+        value: https://safetap-backend.onrender.com
